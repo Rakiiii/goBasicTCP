@@ -40,6 +40,9 @@ var amountOfConnectionsToServer int64
 //var clients = make([]net.Conn,0)
 var clients = make(map[string]Client)
 
+var NEXTLINE string
+var NEXTLINEBYTE byte
+
 func main(){
 	switch{
 	case len(os.Args) <= 2:
@@ -49,6 +52,10 @@ func main(){
 		fmt.Fprintf(os.Stderr,"%s too many arguments",os.Args[0])
 		os.Exit(1)
 	}
+
+	initNEXTLINE()
+
+	log.Println("OS:"+runtime.GOOS)
 
 	workflowPtr := flag.String("workflow","crash","a string")
 	portPtr := flag.String("port","8080","a string")
@@ -98,7 +105,7 @@ func main(){
 				os.Exit(1)
 			}
 
-			serverAddres = subStringBefore(serverAddres,"\n")
+			serverAddres = subStringBefore(serverAddres,NEXTLINE)
 
 			clientSocket , err := net.Dial(CONN_TYPE , net.JoinHostPort(serverAddres,*portPtr))
 			if err != nil{
@@ -136,7 +143,7 @@ func main(){
 				os.Exit(1)
 			}
 
-			serverAddres = subStringBefore(serverAddres,"\n")
+			serverAddres = subStringBefore(serverAddres,NEXTLINE)
 
 			clientSocket , err := net.Dial(CONN_TYPE , net.JoinHostPort(serverAddres,*portPtr))
 			if err != nil{
@@ -186,7 +193,7 @@ func handleRequast(slaveSocket net.Conn){
 	 
 	addr := slaveSocket.RemoteAddr().String()
 
-	slaveSocket.Write([]byte("your remote adress is "+addr+"\n"))
+	slaveSocket.Write([]byte("your remote adress is "+addr+NEXTLINE))
 
 	scanner := bufio.NewScanner(slaveSocket)
 
@@ -209,10 +216,10 @@ func handleRequast(slaveSocket net.Conn){
 			deleteFromClientsList(slaveSocket)
 			break
 		case COMMANDERROR:
-			slaveSocket.Write([]byte("Add "+ BREAKCHARACTER + " after commmand\n"))
+			slaveSocket.Write([]byte("Add "+ BREAKCHARACTER + " after commmand"+NEXTLINE))
 			log.Println("to@" + addr + ":" + "Add "+ BREAKCHARACTER + " after commmand")
 		default:
-			slaveSocket.Write([]byte("there is no such command\n"))
+			slaveSocket.Write([]byte("there is no such command"+NEXTLINE))
 			log.Println("to@" + addr + ":" + "there is no such command") 
 		}
 	}
@@ -225,19 +232,19 @@ func handleGetRequast(val string, client net.Conn) string{
 	//log.Println("Get value is : "+value)
 	switch value{
 	case AMOUNTOFCONN:
-		return strconv.Itoa(int(amountOfConnectionsToServer)) + " active connections on server side\n"
+		return strconv.Itoa(int(amountOfConnectionsToServer)) + " active connections on server side"+NEXTLINE
 	case NAMEREQUAST:
 		log.Println("name returning start")
-		return "Your name is " + clients[client.RemoteAddr().String()].Name+"\n"
+		return "Your name is " + clients[client.RemoteAddr().String()].Name+NEXTLINE
 	case ONLINE:
 		onlineUsersList := "Right now online is ["
 		for _,c := range clients{
 			onlineUsersList += c.Name + ";"
 		}
-		onlineUsersList += "]\n"
+		onlineUsersList += "]"+NEXTLINE
 		return onlineUsersList
 	default:
-		return "Unknown value for Get requast\n"
+		return "Unknown value for Get requast"+NEXTLINE
 	}
 }
 
@@ -248,27 +255,27 @@ func handlePostRequast(val string, client net.Conn)string{
 		value = subStringAfter(val,BREAKCHARACTER)
 		name := subStringBefore(value,BREAKCHARACTER)
 		if name == ""{
-			return "Unknown value for Post requast\n"
+			return "Unknown value for Post requast"+NEXTLINE
 		}
 		if strings.Contains(name," "){
-			return "Name cann't contain space\n"
+			return "Name cann't contain space"+NEXTLINE
 		}
 		setNewClientName(name , client)
-		return "Your new name is " + name + "\n"
+		return "Your new name is " + name + NEXTLINE
 	case MESSAGE:
 		userListString := subStringBefore(subStringAfter(val,BREAKCHARACTER),MESSAGEBREAKCHAR)
 		userList := strings.Fields(userListString)
-		message := "|"+clients[client.RemoteAddr().String()].Name + ":" + subStringAfter(val,MESSAGEBREAKCHAR)+"\n"
+		message := "|"+clients[client.RemoteAddr().String()].Name + ":" + subStringAfter(val,MESSAGEBREAKCHAR)+NEXTLINE
 		return sendMessageToSliceOfUsers(message , userList)
 	default:
-		return "Unknown value for Post requast\n"
+		return "Unknown value for Post requast"+NEXTLINE
 	}
 }
 
 func breakConnection(slaveSocket net.Conn){
 	addr := slaveSocket.RemoteAddr().String()
 	
-	slaveSocket.Write([]byte(BREAK+"\n"))
+	slaveSocket.Write([]byte(BREAK+NEXTLINE))
 	atomic.AddInt64(&amountOfConnectionsToServer,-1)
 	log.Println("to@" + addr + " : " + BREAK)
 	log.Println(addr + "  disconnected")
@@ -392,5 +399,13 @@ func sendMessageToSliceOfUsers(msg string, users []string)string{
 			}
 		}
 	}
-	return result + "]\n" 
+	return result + "]" + NEXTLINE 
+}
+
+func initNEXTLINE(){
+	if runtime.GOOS == "windows"{
+		NEXTLINE = "\r\n"
+	}else{
+		NEXTLINE = "\n"
+	}
 }
