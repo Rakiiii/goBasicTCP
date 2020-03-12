@@ -43,22 +43,23 @@ var clients = make(map[string]Client)
 func main(){
 	switch{
 	case len(os.Args) <= 2:
-		fmt.Fprintf(os.Stderr,"Usage: %s workflow,port\n",os.Args[0])
+		fmt.Fprintf(os.Stderr,"Usage: %s workflow,port,core(optional)\n",os.Args[0])
 		os.Exit(1)
-	case len(os.Args) != 3:
+	case len(os.Args) > 4:
 		fmt.Fprintf(os.Stderr,"%s too many arguments",os.Args[0])
 		os.Exit(1)
 	}
 
 	workflowPtr := flag.String("workflow","crash","a string")
 	portPtr := flag.String("port","8080","a string")
+	amountOfCorePtr := flag.Int("core",1,"an int")
 
 	flag.Parse()
 
 	fmt.Println("workflow="+*workflowPtr + " port:"+*portPtr)
 	switch *workflowPtr{
 		case "server":
-			runtime.GOMAXPROCS(5)
+			runtime.GOMAXPROCS(*amountOfCorePtr)
 			masterSocketListener, err := net.Listen(CONN_TYPE,":"+*portPtr)
 			if err != nil{
 				fmt.Println("Error while listening master socket:",err.Error())
